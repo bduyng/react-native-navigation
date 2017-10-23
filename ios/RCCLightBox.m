@@ -25,16 +25,16 @@ const NSInteger kLightBoxTag = 0x101010;
     if (self)
     {
         self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        
+
         self.params = params;
         self.yellowBoxRemoved = NO;
-        
+
         NSDictionary *passProps = self.params[@"passProps"];
-        
+
         NSDictionary *style = self.params[@"style"];
         if (self.params != nil && style != nil)
         {
-            
+
             if (style[@"backgroundBlur"] != nil && ![style[@"backgroundBlur"] isEqualToString:@"none"])
             {
                 self.visualEffectView = [[UIVisualEffectView alloc] init];
@@ -62,17 +62,17 @@ const NSInteger kLightBoxTag = 0x101010;
                 [self addGestureRecognizer:singleTap];
             }
         }
-        
+
         self.reactView = [[RCTRootView alloc] initWithBridge:[[RCCManager sharedInstance] getBridge] moduleName:self.params[@"component"] initialProperties:passProps];
         self.reactView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
         self.reactView.backgroundColor = [UIColor clearColor];
         self.reactView.sizeFlexibility = RCTRootViewSizeFlexibilityWidthAndHeight;
         self.reactView.center = self.center;
         [self addSubview:self.reactView];
-        
+
         [self.reactView.contentView.layer addObserver:self forKeyPath:@"frame" options:0 context:nil];
         [self.reactView.contentView.layer addObserver:self forKeyPath:@"bounds" options:0 context:NULL];
-        
+
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onRNReload) name:RCTJavaScriptWillStartLoadingNotification object:nil];
     }
     return self;
@@ -87,7 +87,7 @@ const NSInteger kLightBoxTag = 0x101010;
 -(void)layoutSubviews
 {
     [super layoutSubviews];
-    
+
     if(!self.yellowBoxRemoved)
     {
         self.yellowBoxRemoved = [RCTHelpers removeYellowBox:self.reactView];
@@ -120,7 +120,7 @@ const NSInteger kLightBoxTag = 0x101010;
         frameSize = ((CALayer*)object).frame.size;
     if ([object isKindOfClass:[UIView class]])
         frameSize = ((UIView*)object).frame.size;
-    
+
     if (!CGSizeEqualToSize(frameSize, self.reactView.frame.size))
     {
         self.reactView.frame = CGRectMake((self.frame.size.width - frameSize.width) * 0.5, (self.frame.size.height - frameSize.height) * 0.5, frameSize.width, frameSize.height);
@@ -135,7 +135,7 @@ const NSInteger kLightBoxTag = 0x101010;
     {
         return nil;
     }
-    
+
     UIBlurEffectStyle blurEffectStyle = UIBlurEffectStyleDark;
     if ([backgroundBlur isEqualToString:@"light"])
         blurEffectStyle = UIBlurEffectStyleLight;
@@ -148,35 +148,52 @@ const NSInteger kLightBoxTag = 0x101010;
 
 -(void)showAnimated
 {
+    BOOL *animated = self.params[@"animated"];
+    if (!animated) animated = YES;
     if (self.visualEffectView != nil || self.overlayColorView != nil)
     {
-        [UIView animateWithDuration:0.3 animations:^()
-         {
-             if (self.visualEffectView != nil)
+        if (animated == NO) {
+            if (self.visualEffectView != nil)
+            {
+                self.visualEffectView.effect = [self blurEfectForCurrentStyle];
+            }
+            
+            if (self.overlayColorView != nil)
+            {
+                self.overlayColorView.alpha = 1;
+            }
+        }
+        else {
+            [UIView animateWithDuration:0.3 animations:^()
              {
-                 self.visualEffectView.effect = [self blurEfectForCurrentStyle];
-             }
-             
-             if (self.overlayColorView != nil)
-             {
-                 self.overlayColorView.alpha = 1;
-             }
-         }];
+                 if (self.visualEffectView != nil)
+                 {
+                     self.visualEffectView.effect = [self blurEfectForCurrentStyle];
+                 }
+                 
+                 if (self.overlayColorView != nil)
+                 {
+                     self.overlayColorView.alpha = 1;
+                 }
+             }];
+        }
     }
     
-    self.reactView.transform = CGAffineTransformMakeTranslation(0, 100);
-    self.reactView.alpha = 0;
-    [UIView animateWithDuration:0.6 delay:0.2 usingSpringWithDamping:0.65 initialSpringVelocity:0 options:UIViewAnimationOptionCurveEaseOut animations:^()
-    {
-        self.reactView.transform = CGAffineTransformIdentity;
-        self.reactView.alpha = 1;
-    } completion:nil];
+    if (animated == YES) {
+        self.reactView.transform = CGAffineTransformMakeTranslation(0, 100);
+        self.reactView.alpha = 0;
+        [UIView animateWithDuration:0.6 delay:0.2 usingSpringWithDamping:0.65 initialSpringVelocity:0 options:UIViewAnimationOptionCurveEaseOut animations:^()
+         {
+             self.reactView.transform = CGAffineTransformIdentity;
+             self.reactView.alpha = 1;
+         } completion:nil];
+    }
 }
 
 -(void)dismissAnimated
 {
     BOOL hasOverlayViews = (self.visualEffectView != nil || self.overlayColorView != nil);
-    
+
     [UIView animateWithDuration:0.2 animations:^()
     {
         self.reactView.transform = CGAffineTransformMakeTranslation(0, 80);
@@ -189,7 +206,7 @@ const NSInteger kLightBoxTag = 0x101010;
             [self removeFromSuperview];
         }
     }];
-    
+
     if (hasOverlayViews)
     {
         [UIView animateWithDuration:0.25 delay:0.15 options:UIViewAnimationOptionCurveEaseOut animations:^()
@@ -198,12 +215,12 @@ const NSInteger kLightBoxTag = 0x101010;
              {
                  self.visualEffectView.effect = nil;
              }
-             
+
              if (self.overlayColorView != nil)
              {
                  self.overlayColorView.alpha = 0;
              }
-             
+
          } completion:^(BOOL finished)
          {
              [self removeFromSuperview];
